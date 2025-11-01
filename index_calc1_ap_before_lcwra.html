@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UC LCWRA Calculators — Carysforth Creations</title>
+<meta name="description" content="Free Universal Credit LCWRA calculators for advisers by Carysforth Creations. Print-friendly version with disclaimers." />
+<style>
+  :root{ --teal:#008080; --lemon:#FFD60A; --ink:#0f172a; }
+  body{font-family:system-ui,Segoe UI,Arial,sans-serif;margin:24px;max-width:980px;color:var(--ink);background:#ffffff}
+  h1{font-size:1.8rem;margin:0 0 .25rem 0;color:#008080}
+  h2{font-size:1.25rem;margin:0 0 .25rem 0;color:#008080}
+  .muted{color:#475569}
+  .card{border:1px solid #e5e7eb;border-radius:14px;padding:16px;margin:12px 0;background:white;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  label{display:block;font-weight:600;margin:.5rem 0 .25rem}
+  input,button{font-size:1rem;padding:.55rem .7rem;border:1px solid #cbd5e1;border-radius:10px;box-sizing:border-box}
+  input[type="number"],input[type="date"]{width:100%}
+  input[readonly]{background:#f8fafc;color:#475569}
+  .btn{background:linear-gradient(90deg,#008080,#FFD60A);color:#0b1020;border:none;cursor:pointer;font-weight:700}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  footer{margin-top:24px;color:#64748b;font-size:.9rem;text-align:center}
+  @media print{body{margin:10mm} .btn{display:none}}
+</style>
+</head>
+<body>
+<h1>Universal Credit — LCWRA Calculators</h1>
+<p class="muted">Two calculators for advisers. Print-friendly version with disclaimers included. © Carysforth Creations</p>
+<button id="printBtn" class="btn">Print / Save as PDF</button>
+
+<div class="card">
+  <h2>LCWRA Assessment Period Calculator</h2>
+  <div class="card" style="background:#fffbea;border-color:#fde68a;color:#7c5b00">
+    This calculator might be wrong and cannot replace advice. Hopefully it is a useful tool for advisers.
+    <em> If the expected payday falls on a bank holiday, payment will be made on the banking day before.</em>
+  </div>
+  <div class="grid2">
+    <div><label>Start of relevant period (WCA start)</label><input type="date" id="c1_startDate"></div>
+    <div><label>Usual AP start day (1–31)</label><input type="number" id="c1_usualDay" min="1" max="31" value="31"></div>
+  </div>
+  <button class="btn" id="c1_calcBtn">Calculate</button>
+  <div id="c1_results" style="display:none;margin-top:10px">
+    <p><strong>Relevant period:</strong> <span id="c1_startRelevant"></span> – <span id="c1_endRelevant"></span></p>
+    <p><strong>AP in which the relevant period ends:</strong> <span id="c1_startAPContainingEnd"></span> – <span id="c1_endAPContainingEnd"></span></p>
+    <p><strong>AP including LCWRA:</strong> <span id="c1_startAPLCWRA"></span> – <span id="c1_endAPLCWRA"></span></p>
+    <p><strong>Expected payday:</strong> <span id="c1_payday"></span></p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Last Date to Start the Work Capability Process (Pre‑April 2026)</h2>
+  <div class="card" style="background:#fffbea;border-color:#fde68a;color:#7c5b00">
+    This calculator might be wrong and cannot replace advice. Hopefully it is a useful tool for advisers.
+  </div>
+  <div class="grid2">
+    <div><label>Start day of assessment period (1–31)</label><input id="c2_startDay" type="number" min="1" max="31" value="28"></div>
+    <div><label>Relevant date</label><input id="c2_relevantDate" type="date" value="2026-04-05" readonly></div>
+  </div>
+  <button class="btn" id="c2_calcBtn">Calculate</button>
+  <div id="c2_results" style="display:none;margin-top:10px">
+    <p><strong>AP containing 5 Apr 2026:</strong> <span id="c2_apStart"></span> – <span id="c2_apEnd"></span></p>
+    <p><strong>Last date to start WCA process:</strong> <span id="c2_lastStart"></span></p>
+  </div>
+</div>
+
+<footer>© Carysforth Creations — Provided as-is, no liability accepted.</footer>
+
+<script>
+// ===== UTC-SAFE DATE HELPERS =====
+function makeUTC(y,m,d){ return new Date(Date.UTC(y,m,d)); }
+function cloneUTC(d){ return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); }
+function endOfMonthUTC(d){ return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 0)); }
+
+function addDaysUTC(d,n){ const x=cloneUTC(d); x.setUTCDate(x.getUTCDate()+n); return x; }
+function addMonthsUTC(d,n){
+  const y=d.getUTCFullYear(), m=d.getUTCMonth(), day=d.getUTCDate();
+  const lastNext = new Date(Date.UTC(y, m+n+1, 0)).getUTCDate();
+  return makeUTC(y, m+n, Math.min(day, lastNext));
+}
+function fmtGB(d){ return d.toLocaleDateString("en-GB", { timeZone:"UTC", day:"2-digit", month:"2-digit", year:"numeric" }); }
+
+// AP helpers
+function clampToMonthUTC(usualDay, date){
+  const last = endOfMonthUTC(date).getUTCDate();
+  return makeUTC(date.getUTCFullYear(), date.getUTCMonth(), Math.min(usualDay, last));
+}
+function apStartContainingUTC(date, usualDay){
+  const startThis = clampToMonthUTC(usualDay, date);
+  if (date.getTime() >= startThis.getTime()) return startThis;
+  const prevMid = makeUTC(date.getUTCFullYear(), date.getUTCMonth()-1, 15);
+  return clampToMonthUTC(usualDay, prevMid);
+}
+function nextAPStartUTC(apStart, usualDay){
+  const nextMid = makeUTC(apStart.getUTCFullYear(), apStart.getUTCMonth()+1, 15);
+  return clampToMonthUTC(usualDay, nextMid);
+}
+function apEndFromStartUTC(apStart, usualDay){
+  const nextStart = nextAPStartUTC(apStart, usualDay);
+  return addDaysUTC(nextStart, -1);
+}
+
+// Weekend-only payday rollback
+function isWeekendUTC(d){ const w=d.getUTCDay(); return w===0 || w===6; }
+function previousWorkingDayUTC_WeekendOnly(target){
+  let d=cloneUTC(target);
+  while (isWeekendUTC(d)) d = addDaysUTC(d, -1);
+  return d;
+}
+
+// ===== Correct end-of-relevant-period logic =====
+// If same-day 3 months later exists → end = day before it.
+// If it doesn't exist (clamped to month end) → end = that month end.
+function endOfRelevantPeriodUTC(startUTC){
+  const threeLater = addMonthsUTC(startUTC, 3);
+  const startDay   = startUTC.getUTCDate();
+  const threeDay   = threeLater.getUTCDate();
+  const clamped    = threeDay < startDay;  // e.g. 31 -> 30/29/28
+  return clamped ? threeLater : addDaysUTC(threeLater, -1);
+}
+
+// ===== Calculator 1 =====
+document.getElementById('c1_calcBtn').addEventListener('click', ()=>{
+  const startStr = document.getElementById('c1_startDate').value;
+  const usualDay = Number(document.getElementById('c1_usualDay').value);
+  if(!startStr || !(usualDay>=1 && usualDay<=31)){
+    alert("Please enter a valid start date and a usual AP start day between 1 and 31.");
+    return;
+  }
+  const [Y,M,D] = startStr.split('-').map(Number);
+  const startRelevant = makeUTC(Y, M-1, D);
+  const endRelevant   = endOfRelevantPeriodUTC(startRelevant);
+
+  // AP containing the end of the relevant period
+  const apStartContainingEnd = apStartContainingUTC(endRelevant, usualDay);
+  const apEndContainingEnd   = apEndFromStartUTC(apStartContainingEnd, usualDay);
+
+  // AP that includes LCWRA (next AP after that)
+  const apStartLCWRA         = nextAPStartUTC(apStartContainingEnd, usualDay);
+  const apEndLCWRA           = apEndFromStartUTC(apStartLCWRA, usualDay);
+
+  const targetPay            = addDaysUTC(apEndLCWRA, 7);
+  const payday               = previousWorkingDayUTC_WeekendOnly(targetPay);
+
+  document.getElementById('c1_startRelevant').textContent = fmtGB(startRelevant);
+  document.getElementById('c1_endRelevant').textContent   = fmtGB(endRelevant);
+  document.getElementById('c1_startAPContainingEnd').textContent = fmtGB(apStartContainingEnd);
+  document.getElementById('c1_endAPContainingEnd').textContent   = fmtGB(apEndContainingEnd);
+  document.getElementById('c1_startAPLCWRA').textContent  = fmtGB(apStartLCWRA);
+  document.getElementById('c1_endAPLCWRA').textContent    = fmtGB(apEndLCWRA);
+  document.getElementById('c1_payday').textContent        = payday.toLocaleDateString("en-GB",{ timeZone:"UTC", weekday:"short", day:"2-digit", month:"2-digit", year:"numeric" });
+  document.getElementById('c1_results').style.display     = "block";
+});
+
+// ===== Calculator 2 =====
+document.getElementById('c2_calcBtn').addEventListener('click', ()=>{
+  const sd    = Number(document.getElementById('c2_startDay').value);
+  const rdStr = document.getElementById('c2_relevantDate').value;
+  if(!(sd>=1 && sd<=31) || !rdStr){
+    alert('Enter a start day 1–31 and a valid Relevant date.');
+    return;
+  }
+  const [y,m,d] = rdStr.split('-').map(Number);
+  const relevantDate = makeUTC(y, m-1, d);
+
+  const apStart = apStartContainingUTC(relevantDate, sd);
+  const apEnd   = addDaysUTC(nextAPStartUTC(apStart, sd), -1);
+  const lastStart = addMonthsUTC(apStart, -3);
+
+  document.getElementById('c2_apStart').textContent   = fmtGB(apStart);
+  document.getElementById('c2_apEnd').textContent     = fmtGB(apEnd);
+  document.getElementById('c2_lastStart').textContent = fmtGB(lastStart);
+  document.getElementById('c2_results').style.display = 'block';
+});
+
+// Print button
+document.getElementById('printBtn').addEventListener('click', ()=>window.print());
+</script>
+</body>
+</html>
