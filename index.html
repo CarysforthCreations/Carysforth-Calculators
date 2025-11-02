@@ -4,19 +4,19 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>UC LCWRA Calculators — Carysforth Creations</title>
-<meta name="description" content="Free Universal Credit LCWRA calculators for advisers by Carysforth Creations. Print-friendly version with disclaimers." />
+<meta name="description" content="Universal Credit LCWRA calculators for advisers by Carysforth Creations. Print-friendly, single-file." />
 <style>
   :root{ --teal:#008080; --lemon:#FFD60A; --ink:#0f172a; }
   body{font-family:system-ui,Segoe UI,Arial,sans-serif;margin:24px;max-width:980px;color:var(--ink);background:#ffffff}
-  h1{font-size:1.8rem;margin:0 0 .25rem 0;color:var(--teal)}
-  h2{font-size:1.25rem;margin:0 0 .25rem 0;color:var(--teal)}
+  h1{font-size:1.8rem;margin:0 0 .25rem 0;color:#008080}
+  h2{font-size:1.25rem;margin:0 0 .25rem 0;color:#008080}
   .muted{color:#475569}
   .card{border:1px solid #e5e7eb;border-radius:14px;padding:16px;margin:12px 0;background:white;box-shadow:0 1px 2px rgba(0,0,0,.05)}
   label{display:block;font-weight:600;margin:.5rem 0 .25rem}
   input,button{font-size:1rem;padding:.55rem .7rem;border:1px solid #cbd5e1;border-radius:10px;box-sizing:border-box}
   input[type="number"],input[type="date"]{width:100%}
   input[readonly]{background:#f8fafc;color:#475569}
-  .btn{background:linear-gradient(90deg,var(--teal),var(--lemon));color:#0b1020;border:none;cursor:pointer;font-weight:700}
+  .btn{background:linear-gradient(90deg,#008080,#FFD60A);color:#0b1020;border:none;cursor:pointer;font-weight:700}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   footer{margin-top:24px;color:#64748b;font-size:.9rem;text-align:center}
   @media print{body{margin:10mm} .btn{display:none}}
@@ -30,7 +30,9 @@
 <div class="card">
   <h2>LCWRA Assessment Period Calculator</h2>
   <div class="card" style="background:#fffbea;border-color:#fde68a;color:#7c5b00">
-    This calculator might be wrong and cannot replace advice. Hopefully it is a useful tool for advisers.
+    This calculator is designed to be as accurate as possible, but it may not reflect every individual circumstance.
+    It should not be relied on as a substitute for professional advice.
+    Please share feedback if you spot anything that could make it clearer or more accurate.
     <em> If the expected payday falls on a bank holiday, payment will be made on the banking day before.</em>
   </div>
   <div class="grid2">
@@ -40,6 +42,9 @@
   <button class="btn" id="c1_calcBtn">Calculate</button>
   <div id="c1_results" style="display:none;margin-top:10px">
     <p><strong>Relevant period:</strong> <span id="c1_startRelevant"></span> – <span id="c1_endRelevant"></span></p>
+    <p><strong>AP in which the relevant period ends:</strong>
+      <span id="c1_startAPContainingEnd"></span> – <span id="c1_endAPContainingEnd"></span>
+    </p>
     <p><strong>AP including LCWRA:</strong> <span id="c1_startAPLCWRA"></span> – <span id="c1_endAPLCWRA"></span></p>
     <p><strong>Expected payday:</strong> <span id="c1_payday"></span></p>
   </div>
@@ -48,7 +53,9 @@
 <div class="card">
   <h2>Last Date to Start the Work Capability Process (Pre‑April 2026)</h2>
   <div class="card" style="background:#fffbea;border-color:#fde68a;color:#7c5b00">
-    This calculator might be wrong and cannot replace advice. Hopefully it is a useful tool for advisers.
+    This calculator is designed to be as accurate as possible, but it may not reflect every individual circumstance.
+    It should not be relied on as a substitute for professional advice.
+    Please share feedback if you spot anything that could make it clearer or more accurate.
   </div>
   <div class="grid2">
     <div><label>Start day of assessment period (1–31)</label><input id="c2_startDay" type="number" min="1" max="31" value="28"></div>
@@ -128,14 +135,21 @@ document.getElementById('c1_calcBtn').addEventListener('click', ()=>{
   const startRelevant = makeUTC(Y, M-1, D);
   const endRelevant   = endOfRelevantPeriodUTC(startRelevant);
 
+  // AP containing the end of the relevant period
   const apStartContainingEnd = apStartContainingUTC(endRelevant, usualDay);
+  const apEndContainingEnd   = apEndFromStartUTC(apStartContainingEnd, usualDay);
+
+  // AP that includes LCWRA (next AP after that)
   const apStartLCWRA         = nextAPStartUTC(apStartContainingEnd, usualDay);
   const apEndLCWRA           = apEndFromStartUTC(apStartLCWRA, usualDay);
+
   const targetPay            = addDaysUTC(apEndLCWRA, 7);
   const payday               = previousWorkingDayUTC_WeekendOnly(targetPay);
 
   document.getElementById('c1_startRelevant').textContent = fmtGB(startRelevant);
   document.getElementById('c1_endRelevant').textContent   = fmtGB(endRelevant);
+  document.getElementById('c1_startAPContainingEnd').textContent = fmtGB(apStartContainingEnd);
+  document.getElementById('c1_endAPContainingEnd').textContent   = fmtGB(apEndContainingEnd);
   document.getElementById('c1_startAPLCWRA').textContent  = fmtGB(apStartLCWRA);
   document.getElementById('c1_endAPLCWRA').textContent    = fmtGB(apEndLCWRA);
   document.getElementById('c1_payday').textContent        = payday.toLocaleDateString("en-GB",{ timeZone:"UTC", weekday:"short", day:"2-digit", month:"2-digit", year:"numeric" });
